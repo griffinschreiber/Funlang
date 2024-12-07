@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#define LEX_ARENA_SIZE (4 * 1024)
 
 // Macros for lexer utils.
 #define current *(lexer->start + lexer->len)
@@ -20,11 +21,24 @@ struct token {
      int line;
 };
 
+struct token_arena {
+     token tokens[LEX_ARENA_SIZE];
+     int used;
+};
+
+token *alloc_token(token_arena *arena) {
+     if (arena.used >= LEX_ARENA_SIZE) {
+          die("token arena exhausted.");
+     }
+     return &arena->tokens[arena.used++];
+}
+
 struct lexer {
      char *src;
      char *start;
      int len;
      int line;
+     token_arena arena = { .used = 0 };
 };
 
 void die(const char *msg) {
@@ -32,11 +46,13 @@ void die(const char *msg) {
      exit(1);
 }
 
+// to do: [IMPORTANT] be careful. strncpy isn't meant for this and it has special behaviour if the target string is too short.
 struct token make_token(struct lexer *lexer, enum token_type type) {
-     char *token_str = (char *)malloc(8 * lexer->len + 8);
-     strncpy(token_str, lexer->start, lexer->len);
-     token_str[lexer->len + 1] = '\0';
-     struct token token = {token_str, type, lexer->line};
+     token token = alloc_token(lexer->arena);
+     strncpy(token.value, lexer->start, lexer->len);
+     token.value[lexer->len + 1] = '\0';
+     token.type = type;
+     token.line = lexer->line;
      lexer->start = lexer->start + lexer->len;
      return token;
 }
@@ -128,7 +144,27 @@ struct token number(struct lexer *lexer) {
      return make_token(lexer, LEX_NUM_LITERAL);
 }
 
-char escaped_char(lexer) {}
+char escaped_char(lexer) {
+     lexer->len++;
+     switch (current) {
+     case '\'':
+     case '"':
+     case '\\':
+          return current;
+     case 'a': return '\a';
+     case 'b': return '\b';
+     case 'f': return '\f';
+     case 'n': return '\n';
+     case 'r': return '\r';
+     case 't': return '\t';
+     // what does e do? should it be part of the standard?
+     case 'e': return '\033';
+     case 'x': return interpret_hex(lexer);
+     case 'o': return interpret_octal(lexer);
+     default:
+          die("unrecognized escape character.");
+     }
+}
 
 struct token rstring(struct lexer *lexer) {}
 
