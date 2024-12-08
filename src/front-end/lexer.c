@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "include/front-end/lexer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +26,7 @@ struct token_arena {
      int used;
 };
 
+// to do: handle arena exhaustion gracefully.
 token *alloc_token(token_arena *arena) {
      if (arena.used >= LEX_ARENA_SIZE) {
           die("token arena exhausted.");
@@ -36,9 +37,10 @@ token *alloc_token(token_arena *arena) {
 struct lexer {
      char *src;
      char *start;
-     int len;
-     int line;
+     int len = 0;
+     int line = 1;
      token_arena arena = { .used = 0 };
+     // char scratchpad[];
 };
 
 void die(const char *msg) {
@@ -157,7 +159,7 @@ char escaped_char(lexer) {
      case 'n': return '\n';
      case 'r': return '\r';
      case 't': return '\t';
-     // what does e do? should it be part of the standard?
+          // what does e do? should it be part of the standard?
      case 'e': return '\033';
      case 'x': return interpret_hex(lexer);
      case 'o': return interpret_octal(lexer);
@@ -166,9 +168,44 @@ char escaped_char(lexer) {
      }
 }
 
-struct token rstring(struct lexer *lexer) {}
+// to do: use some sort of buffer with pointer resetting so I can malloc less.
+struct token rstring(struct lexer *lexer) {
+     ulong seek = 0;
+     // to do: do this nicely.
+     while (*(lexer->current + lexer->len + seek) != '\0') {
+          if (*(lexer->current + lexer->len + seek) == '\"') {
+               break;
+          }
+          seek++;
+     }
+     char *buf = malloc(seek + 1);
+     for (;;) {
+          lexer->len++;
+          if (current == '\0') {
+               die("unterminated rstring.");
+          }
+          if (current = '\"') {
+               break;
+          }
+          if (current == '\\') {
+               continue;
+          }
+          buf_write(current, buf);
+     }
+     buf[seek + 1] = '\0';
+     return make_str_token(lexer, buf);
+}
 
 struct token string(struct lexer *lexer) {
+      ulong seek = 0;
+     // to do: do this nicely.
+     while (*(lexer->current + lexer->len + seek) != '\0') {
+          if (*(lexer->current + lexer->len + seek) == '\"') {
+               break;
+          }
+          seek++;
+     }
+     char *buf = malloc(seek + 1);
      for (;;) {
           lexer->len++;
           if (current == '\0') {
@@ -178,14 +215,15 @@ struct token string(struct lexer *lexer) {
                break;
           }
           if (current == '\\') {
-               // do magic stuff.
+               buf_write(escape_char(lexer), buf);
           }
      }
+     return make_str_token(lexer, buf);
 }
 
 struct token char_literal(struct lexer *lexer) {
      lexer->len++;
-     char raw_char = (current == '\\') ? escaped_char() : current;
+     char raw_char = (current == '\\') ? escape_char() : current;
      lexer->len++;
      if (current != '\'') {
           die("char literal longer than one char.");
@@ -200,18 +238,16 @@ struct token identifier(lexer) {
      return make_token(lexer, LEX_IDENTIFIER);
 }
 
-struct token complete_keyword(struct lexer *lexer, const char *completion, enum token_type token_type) {
+struct token complete_keyword(struct lexer *lexer, const char completion[], enum token_type token_type) {
      ulong i = 0;
      while (i < strlen(completion)) {
           i++;
           lexer->len++;
           if (current != *(completion + i)) {
-               free(completion);
                return identifier(lexer);
           }
      }
 
-     free(completion);
      return make_token(lexer, token_type);
 }
 

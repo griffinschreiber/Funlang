@@ -1,4 +1,4 @@
-utils.o: utils.c /usr/include/stdc-predef.h utils.h /usr/include/stdio.h \
+main.o: main.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/aarch64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/aarch64-linux-gnu/bits/wordsize.h \
@@ -48,9 +48,9 @@ utils.o: utils.c /usr/include/stdc-predef.h utils.h /usr/include/stdio.h \
  /usr/include/aarch64-linux-gnu/bits/struct_rwlock.h \
  /usr/include/alloca.h \
  /usr/include/aarch64-linux-gnu/bits/stdlib-bsearch.h \
- /usr/include/aarch64-linux-gnu/bits/stdlib-float.h
+ /usr/include/aarch64-linux-gnu/bits/stdlib-float.h utils.h \
+ ../include/front-end/lexer.h
 /usr/include/stdc-predef.h:
-utils.h:
 /usr/include/stdio.h:
 /usr/include/aarch64-linux-gnu/bits/libc-header-start.h:
 /usr/include/features.h:
@@ -105,3 +105,5 @@ utils.h:
 /usr/include/alloca.h:
 /usr/include/aarch64-linux-gnu/bits/stdlib-bsearch.h:
 /usr/include/aarch64-linux-gnu/bits/stdlib-float.h:
+utils.h:
+../include/front-end/lexer.h:
