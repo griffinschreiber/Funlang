@@ -1,4 +1,4 @@
-#include "include/front-end/lexer.h"
+#include "front-end/lexer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,12 +8,17 @@
 #define LEX_ARENA_SIZE (4 * 1024)
 
 // Macros for lexer utils.
-#define current *(lexer->start + lexer->len)
-#define peek *(lexer->start + lexer->len + 1)
-#define peek(n) *(lexer->start + lexer->len + n)
+#define current (*(lexer->start + lexer->len))
+#define peek (*(lexer->start + lexer->len + 1))
+#define peekn(n) (*(lexer->start + lexer->len + n))
 #define match(c) (peek == c)
 #define isbdigit(c) (c == '0' || c == '1')
 #define isodigit(c) (c >= '0' && c <= '7')
+
+void die(const char msg[]) {
+     fprintf(stderr, "Lex error: %s\n", msg);
+     exit(1);
+}
 
 struct token {
      char *value;
@@ -22,40 +27,50 @@ struct token {
 };
 
 struct token_arena {
-     token tokens[LEX_ARENA_SIZE];
+     struct token tokens[LEX_ARENA_SIZE];
      int used;
 };
 
+void buf_write(char c, char *buf) {
+
+}
+
 // to do: handle arena exhaustion gracefully.
-token *alloc_token(token_arena *arena) {
-     if (arena.used >= LEX_ARENA_SIZE) {
+struct token *alloc_token(struct token_arena *arena) {
+     if (arena->used >= LEX_ARENA_SIZE) {
           die("token arena exhausted.");
      }
-     return &arena->tokens[arena.used++];
+     return &arena->tokens[arena->used++];
 }
 
 struct lexer {
      char *src;
      char *start;
-     int len = 0;
-     int line = 1;
-     token_arena arena = { .used = 0 };
+     int len;
+     int line;
+     struct token_arena arena;
      // char scratchpad[];
 };
 
-void die(const char *msg) {
-     fprintf(stderr, "Lex error: %s\n", msg);
-     exit(1);
+// to do: [IMPORTANT] be careful. strncpy isn't meant for this and it has special behaviour if the target string is too short.
+struct token *make_token(struct lexer *lexer, enum token_type type) {
+     struct token *token = alloc_token(&(lexer->arena));
+     strncpy(token->value, lexer->start, lexer->len);
+     token->value[lexer->len + 1] = '\0';
+     token->type = type;
+     token->line = lexer->line;
+     lexer->start = lexer->start + lexer->len;
+     return token;
 }
 
-// to do: [IMPORTANT] be careful. strncpy isn't meant for this and it has special behaviour if the target string is too short.
-struct token make_token(struct lexer *lexer, enum token_type type) {
-     token token = alloc_token(lexer->arena);
-     strncpy(token.value, lexer->start, lexer->len);
-     token.value[lexer->len + 1] = '\0';
-     token.type = type;
-     token.line = lexer->line;
+struct token *make_str_token(struct lexer *lexer, char *buf) {
+     struct token *token = alloc_token(&(lexer->arena));
+     strncpy(token->value, buf, strlen(buf));
+     token->value[lexer->len + 1] = '\0';
+     token->type = LEX_STR_LITERAL;
+     token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
+     free(buf);
      return token;
 }
 
@@ -71,7 +86,7 @@ void skip_block_comment(struct lexer *lexer) {
           lexer->start++;
           if (current == '\n') {
                lexer->line++;
-          } else if (current == '* && match('/')) {
+          } else if (current == '*' && match('/')) {
                break;
           }
      }
@@ -100,7 +115,7 @@ void skip_whitespace(struct lexer *lexer) {
      }
 }
 
-struct token hex(struct lexer *lexer) {
+struct token *hex(struct lexer *lexer) {
      lexer->len++;
      while (isxdigit(peek)) {
           lexer->len++;
@@ -108,7 +123,7 @@ struct token hex(struct lexer *lexer) {
      return make_token(lexer, LEX_NUM_LITERAL);
 }
 
-struct token binary(struct lexer *lexer) {
+struct token *binary(struct lexer *lexer) {
      lexer->len++;
      while (isbdigit(peek)) {
           lexer->len++;
@@ -116,7 +131,7 @@ struct token binary(struct lexer *lexer) {
      return make_token(lexer, LEX_NUM_LITERAL);
 }
 
-struct token octal(struct lexer *lexer) {
+struct token *octal(struct lexer *lexer) {
      lexer->len++;
      while (isodigit(peek)) {
           lexer->len++;
@@ -129,13 +144,13 @@ struct token octal(struct lexer *lexer) {
 // 0x2f9d5c
 // 0b011011
 // 0o777
-struct token number(struct lexer *lexer) {
+struct token *number(struct lexer *lexer) {
      char c = *(lexer->start + lexer->len);
      if (c == '0') {
           switch (c) {
-          case 'x': return hex();
-          case 'b': return binary();
-          case 'o': return octal();
+          case 'x': return hex(lexer);
+          case 'b': return binary(lexer);
+          case 'o': return octal(lexer);
           }
      }
      lexer->len++;
@@ -146,7 +161,30 @@ struct token number(struct lexer *lexer) {
      return make_token(lexer, LEX_NUM_LITERAL);
 }
 
-char escaped_char(lexer) {
+// NOTE: the compiler will only interpret the first two hex digits (one character in utf-8) after the escape character.
+char interpret_hex(struct lexer *lexer) {
+     const char *hex_start = lexer->start + lexer->len;
+     lexer->len++;
+     int len = 0;
+     while (isxdigit(peek)) {
+          lexer->len++;
+          len++;
+     }
+     if (!len) {
+          die("hex escape character (\\x), but no hex digits.");
+     }
+     char buf[2];
+     // super duper dangerous.
+     strncpy(buf, hex_start, 2);
+     // hope that we got it right and it is definitely hex, otherwise undefined behaviour.
+     return (char)strtol(buf, NULL, 16);
+}
+
+char interpret_octal(struct lexer *lexer) {
+
+}
+
+char escaped_char(struct lexer *lexer) {
      lexer->len++;
      switch (current) {
      case '\'':
@@ -169,16 +207,16 @@ char escaped_char(lexer) {
 }
 
 // to do: use some sort of buffer with pointer resetting so I can malloc less.
-struct token rstring(struct lexer *lexer) {
+struct token *rstring(struct lexer *lexer) {
      ulong seek = 0;
      // to do: do this nicely.
-     while (*(lexer->current + lexer->len + seek) != '\0') {
-          if (*(lexer->current + lexer->len + seek) == '\"') {
+     while (*(lexer->start + lexer->len + seek) != '\0') {
+          if (*(lexer->start + lexer->len + seek) == '\"') {
                break;
           }
           seek++;
      }
-     char *buf = malloc(seek + 1);
+     char *buf = (char *)malloc(seek + 1);
      for (;;) {
           lexer->len++;
           if (current == '\0') {
@@ -196,8 +234,8 @@ struct token rstring(struct lexer *lexer) {
      return make_str_token(lexer, buf);
 }
 
-struct token string(struct lexer *lexer) {
-      ulong seek = 0;
+struct token *string(struct lexer *lexer) {
+     ulong seek = 0;
      // to do: do this nicely.
      while (*(lexer->current + lexer->len + seek) != '\0') {
           if (*(lexer->current + lexer->len + seek) == '\"') {
@@ -205,7 +243,7 @@ struct token string(struct lexer *lexer) {
           }
           seek++;
      }
-     char *buf = malloc(seek + 1);
+     char *buf = (char *)malloc(seek + 1);
      for (;;) {
           lexer->len++;
           if (current == '\0') {
@@ -221,7 +259,7 @@ struct token string(struct lexer *lexer) {
      return make_str_token(lexer, buf);
 }
 
-struct token char_literal(struct lexer *lexer) {
+struct token *char_literal(struct lexer *lexer) {
      lexer->len++;
      char raw_char = (current == '\\') ? escape_char() : current;
      lexer->len++;
@@ -231,14 +269,14 @@ struct token char_literal(struct lexer *lexer) {
      return make_token(lexer, LEX_CHAR_LITERAL);
 }
 
-struct token identifier(lexer) {
+struct token *identifier(lexer) {
      while (isalnum(peek) || peek == '_') {
           lexer->len++;
      }
      return make_token(lexer, LEX_IDENTIFIER);
 }
 
-struct token complete_keyword(struct lexer *lexer, const char completion[], enum token_type token_type) {
+struct token *complete_keyword(struct lexer *lexer, const char completion[], enum token_type token_type) {
      ulong i = 0;
      while (i < strlen(completion)) {
           i++;
@@ -251,7 +289,7 @@ struct token complete_keyword(struct lexer *lexer, const char completion[], enum
      return make_token(lexer, token_type);
 }
 
-struct token keyword(struct lexer *lexer) {
+struct token *keyword(struct lexer *lexer) {
      // void
      // bool
      // char
@@ -301,7 +339,7 @@ struct token keyword(struct lexer *lexer) {
           case 'i': return complete_keyword(lexer, "int", LEX_UINT);
           case 'l': return complete_keyword(lexer, "long", LEX_ULONG);
           case 'n':
-               switch (peek(2)) {
+               switch (peekn(2)) {
                case 'i': return complete_keyword(lexer, "nion", LEX_UNION);
                case 'l': return complete_identifier(lexer, "nless", LEX_UNLESS);
                default: return identifier(lexer);
@@ -344,7 +382,7 @@ struct token keyword(struct lexer *lexer) {
      default: return identifier(lexer);
      }
 
-     struct token lex(struct lexer *lexer) {
+     struct token *lex(struct lexer *lexer) {
           if (lexer->len > strlen(lexer->start)) {
                die("lex called after emitting end of file.");
           }

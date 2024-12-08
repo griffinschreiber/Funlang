@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
   }
   char *src = read_file(argv[1]);
 
-  lexer lexer = {src, src};
+  printf("%s\n", src);
 
   free(src);
   return 0;
