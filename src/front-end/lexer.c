@@ -31,10 +31,6 @@ struct token_arena {
      int used;
 };
 
-void buf_write(char c, char *buf) {
-
-}
-
 // to do: handle arena exhaustion gracefully.
 struct token *alloc_token(struct token_arena *arena) {
      if (arena->used >= LEX_ARENA_SIZE) {
@@ -52,10 +48,9 @@ struct lexer {
      // char scratchpad[];
 };
 
-// to do: [IMPORTANT] be careful. strncpy isn't meant for this and it has special behaviour if the target string is too short.
 struct token *make_token(struct lexer *lexer, enum token_type type) {
-     struct token *token = alloc_token(&(lexer->arena));
-     strncpy(token->value, lexer->start, lexer->len);
+     struct token *token = alloc_token(&lexer->arena);
+     strncat(token->value, lexer->start, lexer->len);
      token->value[lexer->len + 1] = '\0';
      token->type = type;
      token->line = lexer->line;
@@ -63,10 +58,23 @@ struct token *make_token(struct lexer *lexer, enum token_type type) {
      return token;
 }
 
+struct token *make_char_token(struct lexer *lexer, char c) {
+     struct token *token = alloc_token(&lexer->arena);
+     token->value = (char *)malloc(2);
+     token->value[0] = c;
+     token->value[1] = '\0';
+     token->type = LEX_CHAR_LITERAL;
+     token->line = lexer->line;
+     lexer->start = lexer->start + lexer->len;
+     return token;
+}
+
 struct token *make_str_token(struct lexer *lexer, char *buf) {
-     struct token *token = alloc_token(&(lexer->arena));
-     strncpy(token->value, buf, strlen(buf));
-     token->value[lexer->len + 1] = '\0';
+     struct token *token = alloc_token(&lexer->arena);
+     int buf_len = strlen(buf);
+     token->value = (char *)malloc(strlen(buf) + 1);
+     token->value[buf_len] = '\0';
+     strncat(token->value, buf, strlen(token->value));
      token->type = LEX_STR_LITERAL;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
@@ -173,18 +181,37 @@ char interpret_hex(struct lexer *lexer) {
      if (!len) {
           die("hex escape character (\\x), but no hex digits.");
      }
-     char buf[2];
-     // super duper dangerous.
-     strncpy(buf, hex_start, 2);
+     // It's 3 because it needs space for a null terminator.
+     char buf[3];
+     strncat(buf, hex_start, 2);
      // hope that we got it right and it is definitely hex, otherwise undefined behaviour.
      return (char)strtol(buf, NULL, 16);
 }
 
+// NOTE: the compiler will only interpret the first three octal digits (one character in utf-8) after the escape character. if the escape sequence has a value greater than 0xff (>0377) it will die.
 char interpret_octal(struct lexer *lexer) {
-
+     const char *octal_start = lexer->start + lexer->len;
+     lexer->len++;
+     int len = 0;
+     while (isodigit(peek)) {
+          lexer->len++;
+          len++;
+     }
+     if (!len) {
+          die("octal escape character (\\o), but no octal digits.");
+     }
+     // It's 4 because it needs space for a null terminator.
+     char buf[4];
+     strncat(buf, octal_start, 3);
+     // hope that we got it right and it is definitely octal, otherwise undefined behaviour.
+     long l = strtol(buf, NULL, 8);
+     if (l > 255) {
+          die("octal escape sequence with value greater than 0xff (>0377).");
+     }
+     return (char)l;
 }
 
-char escaped_char(struct lexer *lexer) {
+char escape_char(struct lexer *lexer) {
      lexer->len++;
      switch (current) {
      case '\'':
@@ -204,6 +231,9 @@ char escaped_char(struct lexer *lexer) {
      default:
           die("unrecognized escape character.");
      }
+     // this should never happen.
+     // to do: unreachable() function.
+     exit(1);
 }
 
 // to do: use some sort of buffer with pointer resetting so I can malloc less.
@@ -217,18 +247,20 @@ struct token *rstring(struct lexer *lexer) {
           seek++;
      }
      char *buf = (char *)malloc(seek + 1);
+     int i = 0;
      for (;;) {
           lexer->len++;
           if (current == '\0') {
                die("unterminated rstring.");
           }
-          if (current = '\"') {
+          if (current == '\"') {
                break;
           }
           if (current == '\\') {
                continue;
           }
-          buf_write(current, buf);
+          buf[i] = current;
+          i++;
      }
      buf[seek + 1] = '\0';
      return make_str_token(lexer, buf);
@@ -237,13 +269,14 @@ struct token *rstring(struct lexer *lexer) {
 struct token *string(struct lexer *lexer) {
      ulong seek = 0;
      // to do: do this nicely.
-     while (*(lexer->current + lexer->len + seek) != '\0') {
-          if (*(lexer->current + lexer->len + seek) == '\"') {
+     while (*(lexer->start + lexer->len + seek) != '\0') {
+          if (*(lexer->start + lexer->len + seek) == '\"') {
                break;
           }
           seek++;
      }
      char *buf = (char *)malloc(seek + 1);
+     int i = 0;
      for (;;) {
           lexer->len++;
           if (current == '\0') {
@@ -253,7 +286,8 @@ struct token *string(struct lexer *lexer) {
                break;
           }
           if (current == '\\') {
-               buf_write(escape_char(lexer), buf);
+               buf[i] = escape_char(lexer);
+               i++;
           }
      }
      return make_str_token(lexer, buf);
@@ -261,15 +295,15 @@ struct token *string(struct lexer *lexer) {
 
 struct token *char_literal(struct lexer *lexer) {
      lexer->len++;
-     char raw_char = (current == '\\') ? escape_char() : current;
+     char raw_char = (current == '\\') ? escape_char(lexer) : current;
      lexer->len++;
      if (current != '\'') {
           die("char literal longer than one char.");
      }
-     return make_token(lexer, LEX_CHAR_LITERAL);
+     return make_char_token(lexer, raw_char);
 }
 
-struct token *identifier(lexer) {
+struct token *identifier(struct lexer *lexer) {
      while (isalnum(peek) || peek == '_') {
           lexer->len++;
      }
@@ -341,7 +375,7 @@ struct token *keyword(struct lexer *lexer) {
           case 'n':
                switch (peekn(2)) {
                case 'i': return complete_keyword(lexer, "nion", LEX_UNION);
-               case 'l': return complete_identifier(lexer, "nless", LEX_UNLESS);
+               case 'l': return complete_keyword(lexer, "nless", LEX_UNLESS);
                default: return identifier(lexer);
                }
           default: return identifier(lexer);
@@ -363,7 +397,7 @@ struct token *keyword(struct lexer *lexer) {
           switch (peek) {
           case 'o': return complete_keyword(lexer, "ouble", LEX_DOUBLE);
           case 'i': return complete_keyword(lexer, "ie", LEX_DIE);
-          default: return identifier();
+          default: return identifier(lexer);
           }
      case 'r':
           switch (peek) {
@@ -371,7 +405,6 @@ struct token *keyword(struct lexer *lexer) {
           case '\"': return rstring(lexer);
           }
      case 't': return complete_keyword(lexer, "ypedef", LEX_TYPEDEF);
-     default: return identifier();
      case 'e':
           switch (peek) {
           case 'n': return complete_keyword(lexer, "num", LEX_ENUM);
@@ -381,63 +414,67 @@ struct token *keyword(struct lexer *lexer) {
      case 'w': return complete_keyword(lexer, "hile", LEX_WHILE);
      default: return identifier(lexer);
      }
+}
 
-     struct token *lex(struct lexer *lexer) {
-          if (lexer->len > strlen(lexer->start)) {
-               die("lex called after emitting end of file.");
-          }
-          skip_whitespace(lexer);
-          if (current == '\0') {
-               return make_token(lexer, LEX_EOF);
-          }
+struct token *lex(struct lexer *lexer) {
+     if (lexer->len > strlen(lexer->start)) {
+          die("lex called after emitting end of file.");
+     }
+     skip_whitespace(lexer);
+     if (current == '\0') {
+          return make_token(lexer, LEX_EOF);
+     }
 
-          if (isalpha(current)) return keyword(lexer);
-          if (isdigit(current)) return number(lexer);
-          if (current == '\"') return string(lexer);
-          if (current == '\'') return char_literal(lexer);
+     if (isalpha(current)) return keyword(lexer);
+     if (isdigit(current)) return number(lexer);
+     if (current == '\"') return string(lexer);
+     if (current == '\'') return char_literal(lexer);
 
-          switch (current) {
-          case ';': return make_token(lexer, LEX_SEMICOLON);
-          case '(': return make_token(lexer, LEX_LPARENS);
-          case ')': return make_token(lexer, LEX_RPARENS);
-          case '[': return make_token(lexer, LEX_LBRACKETS);
-          case ']': return make_token(lexer, LEX_RBRACKETS);
-          case '{': return make_token(lexer, LEX_LCURLY_BRACE);
-          case '}': return make_token(lexer, LEX_RCURLY_BRACE);
+     switch (current) {
+     case ';': return make_token(lexer, LEX_SEMICOLON);
+     case '(': return make_token(lexer, LEX_LPARENS);
+     case ')': return make_token(lexer, LEX_RPARENS);
+     case '[': return make_token(lexer, LEX_LBRACKETS);
+     case ']': return make_token(lexer, LEX_RBRACKETS);
+     case '{': return make_token(lexer, LEX_LCURLY_BRACE);
+     case '}': return make_token(lexer, LEX_RCURLY_BRACE);
 
-          case '+':
-               if (match('+')) return make_token(lexer, LEX_INCREMENT);
-               if (match('=')) return make_token(lexer, LEX_PLUS_EQUALS);
-               return make_token(lexer, LEX_PLUS);
-          case '-':
-               if (match('-')) return make_token(lexer, LEX_DECREMENT);
-               if (match('=')) return make_token(lexer, LEX_MINUS_EQUALS);
-               return make_token(lexer, LEX_MINUS);
-          case '*': return match('=') ? make_token(lexer, LEX_STAR_EQUALS) : make_token(lexer, LEX_STAR);
-          case '/':
-               return match('=') ? make_token(lexer, LEX_SLASH_EQUALS) : make_token(lexer, LEX_SLASH);
-          case '%': return match('=') ? make_token(lexer, LEX_MOD_EQUALS) : make_token(lexer, LEX_MOD);
-          case '&':
-               if (match('&')) return make_token(lexer, LEX_AND);
-               if (match('=')) return make_token(lexer, LEX_BITWISE_AND_EQUALS);
-               return make_token(lexer, LEX_BITWISE_AND);
-          case '|':
-               if (match('|')) return make_token(lexer, LEX_OR);
-               if (match('=')) return make_token(lexer, LEX_BITWISE_OR_EQUALS);
-               return make_token(lexer, LEX_BITWISE_OR);
-          case '^': return match('=') ? make_token(lexer, LEX_BITWISE_XOR_EQUALS) : make_token(lexer, LEX_BITWISE_XOR);
-          case '~': return match('=') ? make_token(lexer, LEX_BITWISE_NOT_EQUALS) : make_token(lexer, LEX_BITWISE_NOT);
-          case '<':
-               if (match('=')) return make_token(lexer, LEX_LESS_THAN_OR_EQUAL_TO);
-               if (match('<')) return match('=') ? make_token(lexer, LEX_LSHIFT_EQUALS) : make_token(lexer, LEX_LSHIFT);
-               return make_token(lexer, LEX_LESS_THAN);
-          case '>':
-               if (match('=')) return make_token(lexer, LEX_GREATER_THAN_OR_EQUAL_TO);
-               if (match('<')) return match('=') ? make_token(lexer, LEX_RSHIFT_EQUALS) : make_token(lexer, LEX_RSHIFT);
-               return make_token(lexer, LEX_GREATER_THAN);
-          default:
-               // to do: variadic stuff for die, so I can do formatting. or something.
-               die("unknown character.");
-          }
+     case '+':
+          if (match('+')) return make_token(lexer, LEX_INCREMENT);
+          if (match('=')) return make_token(lexer, LEX_PLUS_EQUALS);
+          return make_token(lexer, LEX_PLUS);
+     case '-':
+          if (match('-')) return make_token(lexer, LEX_DECREMENT);
+          if (match('=')) return make_token(lexer, LEX_MINUS_EQUALS);
+          return make_token(lexer, LEX_MINUS);
+     case '*': return match('=') ? make_token(lexer, LEX_STAR_EQUALS) : make_token(lexer, LEX_STAR);
+     case '/':
+          return match('=') ? make_token(lexer, LEX_SLASH_EQUALS) : make_token(lexer, LEX_SLASH);
+     case '%': return match('=') ? make_token(lexer, LEX_MOD_EQUALS) : make_token(lexer, LEX_MOD);
+     case '&':
+          if (match('&')) return make_token(lexer, LEX_AND);
+          if (match('=')) return make_token(lexer, LEX_BITWISE_AND_EQUALS);
+          return make_token(lexer, LEX_BITWISE_AND);
+     case '|':
+          if (match('|')) return make_token(lexer, LEX_OR);
+          if (match('=')) return make_token(lexer, LEX_BITWISE_OR_EQUALS);
+          return make_token(lexer, LEX_BITWISE_OR);
+     case '^': return match('=') ? make_token(lexer, LEX_BITWISE_XOR_EQUALS) : make_token(lexer, LEX_BITWISE_XOR);
+     case '~': return match('=') ? make_token(lexer, LEX_BITWISE_NOT_EQUALS) : make_token(lexer, LEX_BITWISE_NOT);
+     case '<':
+          if (match('=')) return make_token(lexer, LEX_LESS_THAN_OR_EQUAL_TO);
+          if (match('<')) return match('=') ? make_token(lexer, LEX_LSHIFT_EQUALS) : make_token(lexer, LEX_LSHIFT);
+          return make_token(lexer, LEX_LESS_THAN);
+     case '>':
+          if (match('=')) return make_token(lexer, LEX_GREATER_THAN_OR_EQUAL_TO);
+          if (match('<')) return match('=') ? make_token(lexer, LEX_RSHIFT_EQUALS) : make_token(lexer, LEX_RSHIFT);
+          return make_token(lexer, LEX_GREATER_THAN);
+     default:
+          // to do: variadic stuff for die, so I can do formatting. or something.
+          die("unknown character.");
+     }
+     // this should never happen.
+     exit(1);
+}
 
-          // *char s = [char]alloc(10)
+// *char s = [char]alloc(10)

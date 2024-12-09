@@ -31,6 +31,7 @@ enum token_type {
   LEX_MOD_EQUALS,
   LEX_BITWISE_AND_EQUALS,
   LEX_BITWISE_OR_EQUALS,
+  LEX_BITWISE_XOR_EQUALS,
   LEX_BITWISE_NOT_EQUALS,
   LEX_LSHIFT_EQUALS,
   LEX_RSHIFT_EQUALS,
@@ -98,6 +99,6 @@ struct token;
 
 struct lexer;
 
-struct token lex(struct lexer *lexer);
+struct token *lex(struct lexer *lexer);
 
 #endif // LEXER_H_
