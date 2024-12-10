@@ -5,7 +5,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#define LEX_ARENA_SIZE (4 * 1024)
+// must be greater than 2.
+#define LEX_SCRATCHPAD_SIZE 128
 
 // Macros for lexer utils.
 #define current (*(lexer->start + lexer->len))
@@ -26,32 +27,22 @@ struct token {
      int line;
 };
 
-struct token_arena {
-     struct token tokens[LEX_ARENA_SIZE];
-     int used;
-};
-
-// to do: handle arena exhaustion gracefully.
-struct token *alloc_token(struct token_arena *arena) {
-     if (arena->used >= LEX_ARENA_SIZE) {
-          die("token arena exhausted.");
-     }
-     return &arena->tokens[arena->used++];
-}
-
 struct lexer {
      char *src;
      char *start;
      int len;
      int line;
-     struct token_arena arena;
-     // char scratchpad[];
+     char scratchpad[LEX_SCRATCHPAD_SIZE];
+     struct token token_buffer;
 };
 
 struct token *make_token(struct lexer *lexer, enum token_type type) {
-     struct token *token = alloc_token(&lexer->arena);
+     struct token *token = &lexer->token_buffer;
+     // length of string lexer->start to lexer->start + lexer->len is lexer->len + 1. don't count null terminator
+     // in the ternary condition bc it's a "<" and not a "<=".
+     token->value = (lexer->len + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(lexer->len + 2);
+     token->value[lexer->len] = '\0';
      strncat(token->value, lexer->start, lexer->len);
-     token->value[lexer->len + 1] = '\0';
      token->type = type;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
@@ -59,8 +50,8 @@ struct token *make_token(struct lexer *lexer, enum token_type type) {
 }
 
 struct token *make_char_token(struct lexer *lexer, char c) {
-     struct token *token = alloc_token(&lexer->arena);
-     token->value = (char *)malloc(2);
+     struct token *token = &lexer->token_buffer;
+     token->value = &lexer->scratchpad;
      token->value[0] = c;
      token->value[1] = '\0';
      token->type = LEX_CHAR_LITERAL;
@@ -70,10 +61,10 @@ struct token *make_char_token(struct lexer *lexer, char c) {
 }
 
 struct token *make_str_token(struct lexer *lexer, char *buf) {
-     struct token *token = alloc_token(&lexer->arena);
+     struct token *token = &lexer->token_buffer;
      int buf_len = strlen(buf);
-     token->value = (char *)malloc(strlen(buf) + 1);
-     token->value[buf_len] = '\0';
+     token->value = (buf_len < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(buf_len + 1);
+     token->value[buf_len + 1] = '\0';
      strncat(token->value, buf, strlen(token->value));
      token->type = LEX_STR_LITERAL;
      token->line = lexer->line;
@@ -248,7 +239,7 @@ struct token *rstring(struct lexer *lexer) {
           }
           seek++;
      }
-     char *buf = (char *)malloc(seek + 1);
+     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(seek + 2);
      int i = 0;
      for (;;) {
           lexer->len++;
@@ -277,7 +268,7 @@ struct token *string(struct lexer *lexer) {
           }
           seek++;
      }
-     char *buf = (char *)malloc(seek + 1);
+     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(seek + 2);
      int i = 0;
      for (;;) {
           lexer->len++;
