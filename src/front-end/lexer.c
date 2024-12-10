@@ -183,6 +183,7 @@ char interpret_hex(struct lexer *lexer) {
      }
      // It's 3 because it needs space for a null terminator.
      char buf[3];
+     buf[2] = '\0';
      strncat(buf, hex_start, 2);
      // hope that we got it right and it is definitely hex, otherwise undefined behaviour.
      return (char)strtol(buf, NULL, 16);
@@ -202,6 +203,7 @@ char interpret_octal(struct lexer *lexer) {
      }
      // It's 4 because it needs space for a null terminator.
      char buf[4];
+     buf[3] = '\0';
      strncat(buf, octal_start, 3);
      // hope that we got it right and it is definitely octal, otherwise undefined behaviour.
      long l = strtol(buf, NULL, 8);
