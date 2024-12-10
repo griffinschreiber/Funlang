@@ -23,7 +23,7 @@ obj/
 *.o
 
 # Ignore sensitive files
-git_token.txt
+git-token.txt
 
 # Ignore anything generated in 'src/'
 src/*.o
