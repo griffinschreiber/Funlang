@@ -23,6 +23,7 @@ struct token *make_token(struct lexer *lexer, enum token_type type) {
      // length of string lexer->start to lexer->start + lexer->len is lexer->len + 1. don't count null terminator
      // in the ternary condition bc it's a "<" and not a "<=".
      token->value = (lexer->len + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(lexer->len + 2);
+     printf("Debug: %s\n", token->value);
      token->value[lexer->len] = '\0';
      strncpy(token->value, lexer->start, lexer->len);
      token->type = type;
@@ -291,13 +292,13 @@ struct token *identifier(struct lexer *lexer) {
      return make_token(lexer, LEX_IDENTIFIER);
 }
 
-// bug here?
+// to do: make this better.
 struct token *complete_keyword(struct lexer *lexer, const char completion[], enum token_type token_type) {
      if (strncmp(completion, lexer->start + lexer->len, strlen(completion)) == 0 && !isalnum(*(lexer->start + lexer->len + strlen(completion)))) {
-          return make_token(lexer, token_type);
+          lexer->len += strlen(completion);
+          return identifier(lexer);
      }
-
-
+     lexer->len += strlen(completion);
      return make_token(lexer, token_type);
 }
 

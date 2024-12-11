@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
   lexer.scratchpad[LEX_SCRATCHPAD_SIZE - 1] = '\0';
 
   while (lex(&lexer)->type != LEX_EOF) {
-    printf("%s\n", lexer.token_buffer.value);
+    //printf("%i\n", lexer.token_buffer.type);
   }
 
   free(src);
