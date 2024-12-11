@@ -1,6 +1,8 @@
 #ifndef LEXER_H_
 #define LEXER_H_
 
+// must be greater than 2.
+#define LEX_SCRATCHPAD_SIZE 128
 
 enum token_type {
   LEX_EOF,
@@ -95,9 +97,20 @@ enum token_type {
   LEX_RCURLY_BRACE
 };
 
-struct token;
+struct token {
+     char *value;
+     enum token_type type;
+     int line;
+};
 
-struct lexer;
+struct lexer {
+     char *src;
+     char *start;
+     int len;
+     int line;
+     char scratchpad[LEX_SCRATCHPAD_SIZE];
+     struct token token_buffer;
+};
 
 struct token *lex(struct lexer *lexer);
 

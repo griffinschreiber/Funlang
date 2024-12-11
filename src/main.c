@@ -11,7 +11,16 @@ int main(int argc, char *argv[]) {
   }
   char *src = read_file(argv[1]);
 
-  printf("%s\n", src);
+  struct lexer lexer;
+  lexer.src = src;
+  lexer.start = src;
+  lexer.len = 0;
+  lexer.line = 1;
+  lexer.scratchpad[LEX_SCRATCHPAD_SIZE - 1] = '\0';
+
+  while (lex(&lexer)->type != LEX_EOF) {
+    printf("%s\n", lexer.token_buffer.value);
+  }
 
   free(src);
   return 0;

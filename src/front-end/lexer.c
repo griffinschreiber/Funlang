@@ -5,9 +5,6 @@
 #include <string.h>
 #include <ctype.h>
 
-// must be greater than 2.
-#define LEX_SCRATCHPAD_SIZE 128
-
 // Macros for lexer utils.
 #define current (*(lexer->start + lexer->len))
 #define peek (*(lexer->start + lexer->len + 1))
@@ -21,28 +18,13 @@ void die(const char msg[]) {
      exit(1);
 }
 
-struct token {
-     char *value;
-     enum token_type type;
-     int line;
-};
-
-struct lexer {
-     char *src;
-     char *start;
-     int len;
-     int line;
-     char scratchpad[LEX_SCRATCHPAD_SIZE];
-     struct token token_buffer;
-};
-
 struct token *make_token(struct lexer *lexer, enum token_type type) {
      struct token *token = &lexer->token_buffer;
      // length of string lexer->start to lexer->start + lexer->len is lexer->len + 1. don't count null terminator
      // in the ternary condition bc it's a "<" and not a "<=".
-     token->value = (lexer->len + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(lexer->len + 2);
+     token->value = (lexer->len + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(lexer->len + 2);
      token->value[lexer->len] = '\0';
-     strncat(token->value, lexer->start, lexer->len);
+     strncpy(token->value, lexer->start, lexer->len);
      token->type = type;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
@@ -51,7 +33,7 @@ struct token *make_token(struct lexer *lexer, enum token_type type) {
 
 struct token *make_char_token(struct lexer *lexer, char c) {
      struct token *token = &lexer->token_buffer;
-     token->value = &lexer->scratchpad;
+     token->value = lexer->scratchpad;
      token->value[0] = c;
      token->value[1] = '\0';
      token->type = LEX_CHAR_LITERAL;
@@ -63,13 +45,15 @@ struct token *make_char_token(struct lexer *lexer, char c) {
 struct token *make_str_token(struct lexer *lexer, char *buf) {
      struct token *token = &lexer->token_buffer;
      int buf_len = strlen(buf);
-     token->value = (buf_len < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(buf_len + 1);
-     token->value[buf_len + 1] = '\0';
-     strncat(token->value, buf, strlen(token->value));
+     token->value = (buf_len < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(buf_len + 1);
+     token->value[buf_len] = '\0';
+     strncpy(token->value, buf, strlen(token->value));
      token->type = LEX_STR_LITERAL;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
-     free(buf);
+     if (buf != lexer->scratchpad) {
+          free(buf);
+     }
      return token;
 }
 
@@ -97,11 +81,13 @@ void skip_whitespace(struct lexer *lexer) {
           case '/':
                if (match('/')) {
                     skip_comment(lexer);
-               } else if (match('*')) {
-                    skip_block_comment(lexer);
-               } else {
-                    return;
+                    break;
                }
+               if (match('*')) {
+                    skip_block_comment(lexer);
+                    break;
+               }
+               return;
           case ' ':
           case '\t':
           case '\n':
@@ -175,7 +161,7 @@ char interpret_hex(struct lexer *lexer) {
      // It's 3 because it needs space for a null terminator.
      char buf[3];
      buf[2] = '\0';
-     strncat(buf, hex_start, 2);
+     strncpy(buf, hex_start, 2);
      // hope that we got it right and it is definitely hex, otherwise undefined behaviour.
      return (char)strtol(buf, NULL, 16);
 }
@@ -195,7 +181,7 @@ char interpret_octal(struct lexer *lexer) {
      // It's 4 because it needs space for a null terminator.
      char buf[4];
      buf[3] = '\0';
-     strncat(buf, octal_start, 3);
+     strncpy(buf, octal_start, 3);
      // hope that we got it right and it is definitely octal, otherwise undefined behaviour.
      long l = strtol(buf, NULL, 8);
      if (l > 255) {
@@ -239,7 +225,7 @@ struct token *rstring(struct lexer *lexer) {
           }
           seek++;
      }
-     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(seek + 2);
+     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(seek + 2);
      int i = 0;
      for (;;) {
           lexer->len++;
@@ -268,7 +254,7 @@ struct token *string(struct lexer *lexer) {
           }
           seek++;
      }
-     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? &lexer->scratchpad : (char *)malloc(seek + 2);
+     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(seek + 2);
      int i = 0;
      for (;;) {
           lexer->len++;
@@ -297,21 +283,20 @@ struct token *char_literal(struct lexer *lexer) {
 }
 
 struct token *identifier(struct lexer *lexer) {
+
+     lexer->len++;
      while (isalnum(peek) || peek == '_') {
           lexer->len++;
      }
      return make_token(lexer, LEX_IDENTIFIER);
 }
 
+// bug here?
 struct token *complete_keyword(struct lexer *lexer, const char completion[], enum token_type token_type) {
-     ulong i = 0;
-     while (i < strlen(completion)) {
-          i++;
-          lexer->len++;
-          if (current != *(completion + i)) {
-               return identifier(lexer);
-          }
+     if (strncmp(completion, lexer->start + lexer->len, strlen(completion)) == 0 && !isalnum(*(lexer->start + lexer->len + strlen(completion)))) {
+          return make_token(lexer, token_type);
      }
+
 
      return make_token(lexer, token_type);
 }

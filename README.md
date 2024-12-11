@@ -8,4 +8,9 @@ This project uses automake, which you can read about it here: [GNU -- creating a
 
 You can initiate the build system with `autoreconf --install` and configure it with `./configure`. Then you can make it normally with `make`, and run it with `./src/funlang`.
 
-When changing `configure.ac`, `Makefile.am`, or `src/Makefile.am`, remember to run `./configure`.
+When changing `configure.ac`, `Makefile.am`, or `src/Makefile.am`, remember to run:
+
+```
+autoreconf -fi
+./configure
+```
