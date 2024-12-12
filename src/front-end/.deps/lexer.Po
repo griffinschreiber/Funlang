@@ -52,7 +52,8 @@ front-end/lexer.o: front-end/lexer.c /usr/include/stdc-predef.h \
  /usr/include/aarch64-linux-gnu/bits/stdlib-float.h /usr/include/string.h \
  /usr/include/aarch64-linux-gnu/bits/types/locale_t.h \
  /usr/include/aarch64-linux-gnu/bits/types/__locale_t.h \
- /usr/include/strings.h /usr/include/ctype.h
+ /usr/include/strings.h /usr/include/ctype.h \
+ /usr/lib/gcc/aarch64-linux-gnu/12/include/stdbool.h
 /usr/include/stdc-predef.h:
 ../include/front-end/lexer.h:
 /usr/include/stdio.h:
@@ -114,3 +115,4 @@ front-end/lexer.o: front-end/lexer.c /usr/include/stdc-predef.h \
 /usr/include/aarch64-linux-gnu/bits/types/__locale_t.h:
 /usr/include/strings.h:
 /usr/include/ctype.h:
+/usr/lib/gcc/aarch64-linux-gnu/12/include/stdbool.h:

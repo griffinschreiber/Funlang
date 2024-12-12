@@ -18,8 +18,9 @@ int main(int argc, char *argv[]) {
   lexer.line = 1;
   lexer.scratchpad[LEX_SCRATCHPAD_SIZE - 1] = '\0';
 
+  printf("Debug: lexing first token.\n");
   while (lex(&lexer)->type != LEX_EOF) {
-    //printf("%i\n", lexer.token_buffer.type);
+    printf("Debug: lexing another token.\n");
   }
 
   free(src);

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 // Macros for lexer utils.
 #define current (*(lexer->start + lexer->len))
@@ -19,20 +20,28 @@ void die(const char msg[]) {
 }
 
 struct token *make_token(struct lexer *lexer, enum token_type type) {
+     if (!lexer->len) {
+          die("make_token called with lexer->len of 0.");
+     }
      struct token *token = &lexer->token_buffer;
      // length of string lexer->start to lexer->start + lexer->len is lexer->len + 1. don't count null terminator
      // in the ternary condition bc it's a "<" and not a "<=".
      token->value = (lexer->len + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(lexer->len + 2);
-     printf("Debug: %s\n", token->value);
+     printf("Debug: %i\n", lexer->len);
      token->value[lexer->len] = '\0';
-     strncpy(token->value, lexer->start, lexer->len);
+     memcpy(token->value, lexer->start, lexer->len + 1);
+     printf("Debug: %s\n", token->value);
      token->type = type;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
+     lexer->len = 0;
      return token;
 }
 
 struct token *make_char_token(struct lexer *lexer, char c) {
+     if (!lexer->len) {
+          die("make_char_token called with lexer->len of 0.");
+     }
      struct token *token = &lexer->token_buffer;
      token->value = lexer->scratchpad;
      token->value[0] = c;
@@ -40,21 +49,20 @@ struct token *make_char_token(struct lexer *lexer, char c) {
      token->type = LEX_CHAR_LITERAL;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
+     lexer->len = 0;
      return token;
 }
 
 struct token *make_str_token(struct lexer *lexer, char *buf) {
+     if (!lexer->len) {
+          die("make_str_token called with lexer->len of 0.");
+     }
      struct token *token = &lexer->token_buffer;
-     int buf_len = strlen(buf);
-     token->value = (buf_len < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(buf_len + 1);
-     token->value[buf_len] = '\0';
-     strncpy(token->value, buf, strlen(token->value));
+     token->value = buf;
      token->type = LEX_STR_LITERAL;
      token->line = lexer->line;
      lexer->start = lexer->start + lexer->len;
-     if (buf != lexer->scratchpad) {
-          free(buf);
-     }
+     lexer->len = 0;
      return token;
 }
 
@@ -102,7 +110,7 @@ void skip_whitespace(struct lexer *lexer) {
 }
 
 struct token *hex(struct lexer *lexer) {
-     lexer->len++;
+     lexer->len += 2;
      while (isxdigit(peek)) {
           lexer->len++;
      }
@@ -110,7 +118,7 @@ struct token *hex(struct lexer *lexer) {
 }
 
 struct token *binary(struct lexer *lexer) {
-     lexer->len++;
+     lexer->len += 2;
      while (isbdigit(peek)) {
           lexer->len++;
      }
@@ -118,7 +126,7 @@ struct token *binary(struct lexer *lexer) {
 }
 
 struct token *octal(struct lexer *lexer) {
-     lexer->len++;
+     lexer->len += 2;
      while (isodigit(peek)) {
           lexer->len++;
      }
@@ -133,7 +141,7 @@ struct token *octal(struct lexer *lexer) {
 struct token *number(struct lexer *lexer) {
      char c = *(lexer->start + lexer->len);
      if (c == '0') {
-          switch (c) {
+          switch (peek) {
           case 'x': return hex(lexer);
           case 'b': return binary(lexer);
           case 'o': return octal(lexer);
@@ -162,7 +170,7 @@ char interpret_hex(struct lexer *lexer) {
      // It's 3 because it needs space for a null terminator.
      char buf[3];
      buf[2] = '\0';
-     strncpy(buf, hex_start, 2);
+     memcpy(buf, hex_start, 2);
      // hope that we got it right and it is definitely hex, otherwise undefined behaviour.
      return (char)strtol(buf, NULL, 16);
 }
@@ -182,7 +190,7 @@ char interpret_octal(struct lexer *lexer) {
      // It's 4 because it needs space for a null terminator.
      char buf[4];
      buf[3] = '\0';
-     strncpy(buf, octal_start, 3);
+     memcpy(buf, octal_start, 3);
      // hope that we got it right and it is definitely octal, otherwise undefined behaviour.
      long l = strtol(buf, NULL, 8);
      if (l > 255) {
@@ -216,46 +224,10 @@ char escape_char(struct lexer *lexer) {
      exit(1);
 }
 
-// to do: use some sort of buffer with pointer resetting so I can malloc less.
-struct token *rstring(struct lexer *lexer) {
-     ulong seek = 0;
-     // to do: do this nicely.
-     while (*(lexer->start + lexer->len + seek) != '\0') {
-          if (*(lexer->start + lexer->len + seek) == '\"') {
-               break;
-          }
-          seek++;
-     }
-     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(seek + 2);
-     int i = 0;
-     for (;;) {
-          lexer->len++;
-          if (current == '\0') {
-               die("unterminated rstring.");
-          }
-          if (current == '\"') {
-               break;
-          }
-          if (current == '\\') {
-               continue;
-          }
-          buf[i] = current;
-          i++;
-     }
-     buf[seek + 1] = '\0';
-     return make_str_token(lexer, buf);
-}
-
-struct token *string(struct lexer *lexer) {
-     ulong seek = 0;
-     // to do: do this nicely.
-     while (*(lexer->start + lexer->len + seek) != '\0') {
-          if (*(lexer->start + lexer->len + seek) == '\"') {
-               break;
-          }
-          seek++;
-     }
-     char *buf = (seek + 1 < LEX_SCRATCHPAD_SIZE) ? lexer->scratchpad : (char *)malloc(seek + 2);
+struct token *string(struct lexer *lexer, bool is_raw) {
+     int seek = strchr(lexer->start + lexer->len, '"') - (lexer->start + lexer->len);
+     // to do: a nicer way of doing this.
+     char *buf = seek + 1 < LEX_SCRATCHPAD_SIZE ? lexer->scratchpad : malloc(seek + 2);
      int i = 0;
      for (;;) {
           lexer->len++;
@@ -266,7 +238,7 @@ struct token *string(struct lexer *lexer) {
                break;
           }
           if (current == '\\') {
-               buf[i] = escape_char(lexer);
+               lexer->scratchpad[i] = is_raw ? current : escape_char(lexer);
                i++;
           }
      }
@@ -381,7 +353,7 @@ struct token *keyword(struct lexer *lexer) {
      case 'r':
           switch (peek) {
           case 'e': return complete_keyword(lexer, "eturn", LEX_RETURN);
-          case '\"': return rstring(lexer);
+          case '\"': return string(lexer, 1);
           }
      case 't': return complete_keyword(lexer, "ypedef", LEX_TYPEDEF);
      case 'e':
@@ -404,9 +376,11 @@ struct token *lex(struct lexer *lexer) {
           return make_token(lexer, LEX_EOF);
      }
 
+     printf("Debug: current is \"%c\"", current);
+
      if (isalpha(current)) return keyword(lexer);
      if (isdigit(current)) return number(lexer);
-     if (current == '\"') return string(lexer);
+     if (current == '\"') return string(lexer, 0);
      if (current == '\'') return char_literal(lexer);
 
      switch (current) {
