@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
   printf("Debug: lexing first token.\n");
   while (lex(&lexer)->type != LEX_EOF) {
     printf("Debug: lexing another token.\n");
+    printf("Token value: \"%s\"\n", lexer.token_buffer.value);
   }
 
   free(src);

@@ -1,9 +1,6 @@
 #ifndef LEXER_H_
 #define LEXER_H_
 
-// must be greater than 2.
-#define LEX_SCRATCHPAD_SIZE 128
-
 enum token_type {
   LEX_EOF,
   LEX_SEMICOLON,
@@ -13,6 +10,9 @@ enum token_type {
   LEX_IDENTIFIER,
 
   LEX_NUM_LITERAL,
+  LEX_HEX_LITERAL,
+  LEX_BINARY_LITERAL,
+  LEX_OCTAL_LITERAL,
   LEX_CHAR_LITERAL,
   LEX_STR_LITERAL,
 
@@ -98,20 +98,18 @@ enum token_type {
 };
 
 struct token {
-     char *value;
-     enum token_type type;
-     int line;
+  char *start;
+  int len;
+  enum token_type type;
+  int line;
 };
 
 struct lexer {
-     char *src;
-     char *start;
-     int len;
-     int line;
-     char scratchpad[LEX_SCRATCHPAD_SIZE];
-     struct token token_buffer;
+  char *start;
+  char *current;
+  int line;
 };
 
-struct token *lex(struct lexer *lexer);
+struct token lex(struct lexer *lexer);
 
 #endif // LEXER_H_
