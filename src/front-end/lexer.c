@@ -22,15 +22,17 @@ struct token make_token(struct lexer *lexer, enum token_type type) {
      return token;
 }
 
-struct token identifier(struct lexer *lexer) {}
+struct token identifier(struct lexer *lexer) {
+
+}
 
 struct token complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
-     size_t completion_len = strlen(completion);
-     if (strncmp(lexer->current, completion, completion_len) == 0) {
-          lexer->current += completion_len;
-          return make_token(lexer, type);
+     for (int i = 0; i < strlen(completion); i++) {
+          if (lexer->current[i] != completion[i]) {
+               return identifier(lexer);
+          }
      }
-     return identifier(lexer);
+     return make_token(lexer, type);
 }
 
 struct token keyword(struct lexer *lexer) {
@@ -66,14 +68,14 @@ struct token keyword(struct lexer *lexer) {
      case 'v': return complete_keyword(lexer, "oid", LEX_VOID);
      case 'b': return complete_keyword(lexer, "ool", LEX_BOOL);
      case 'c':
-          switch(*(lexer->current + 1)) {
+          switch(lexer->current[1]) {
           case 'h': return complete_keyword(lexer, "har", LEX_CHAR);
           case 'o': return complete_keyword(lexer, "onst", LEX_CONST);
           case 'a': return complete_keyword(lexer, "ase", LEX_CASE);
           }
           break;
      case 'u':
-          switch(*(lexer->current + 1)) {
+          switch(lexer->current[1]) {
           case 'c': return complete_keyword(lexer, "char", LEX_UCHAR);
           case 's': return complete_keyword(lexer, "short", LEX_USHORT);
           case 'i': return complete_keyword(lexer, "int", LEX_UINT);
@@ -82,27 +84,27 @@ struct token keyword(struct lexer *lexer) {
           }
           break;
      case 's':
-          switch (*(lexer->current + 1)) {
+          switch (lexer->current[1]) {
           case 'h': return complete_keyword(lexer, "hort", LEX_SHORT);
           case 'w': return complete_keyword(lexer, "witch", LEX_SWITCH);
           case 't': return complete_keyword(lexer, "truct", LEX_STRUCT);
           }
           break;
      case 'i':
-          switch (*(lexer->current + 1)) {
+          switch (lexer->current[1]) {
           case 'n': return complete_keyword(lexer, "nt", LEX_INT);
           case 'f': return make_token(lexer, LEX_IF);
           }
           break;
      case 'f':
-          switch (*(lexer->current + 1)) {
+          switch (lexer->current[1]) {
           case 'l': return complete_keyword(lexer, "loat", LEX_FLOAT);
           case 'o': return complete_keyword(lexer, "or", LEX_FOR);
           }
           break;
      case 'l': return complete_keyword(lexer, "ong", LEX_LONG);
      case 'd':
-          switch (*(lexer->current + 1)) {
+          switch (lexer->current[1]) {
           case 'o': return complete_keyword(lexer, "ouble", LEX_DOUBLE);
           case 'i': return complete_keyword(lexer, "ie", LEX_DIE);
           }
@@ -110,7 +112,7 @@ struct token keyword(struct lexer *lexer) {
      case 'r': return complete_keyword(lexer, "eturn", LEX_RETURN);
      case 't': return complete_keyword(lexer, "ypedef", LEX_TYPEDEF);
      case 'e':
-          switch (*(lexer->current + 1)) {
+          switch (lexer->current[1]) {
           case 'n': return complete_keyword(lexer, "num", LEX_ENUM);
           case 'l': return complete_keyword(lexer, "lse", LEX_ELSE);
           }
