@@ -17,14 +17,14 @@ bool match(struct lexer *lexer, char c) {
 struct token make_token(struct lexer *lexer, enum token_type type) {
      struct token token;
      token.start = lexer->start;
-     token.len = (int)(current - start);
+     token.len = (int)(lexer->current - lexer->start);
      token.line = lexer->line;
      return token;
 }
 
 struct token identifier(struct lexer *lexer) {}
 
-struct token complete_keyword(struct lexer *lexer, const char *completion, struct token_type type) {
+struct token complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
      size_t completion_len = strlen(completion);
      if (strncmp(lexer->current, completion, completion_len) == 0) {
           lexer->current += completion_len;
@@ -58,7 +58,6 @@ struct token keyword(struct lexer *lexer) {
      // union
      // if
      // else
-     // unless
      // switch
      // case
      // for
@@ -77,14 +76,16 @@ struct token keyword(struct lexer *lexer) {
           switch(*(lexer->current + 1)) {
           case 'c': return complete_keyword(lexer, "char", LEX_UCHAR);
           case 's': return complete_keyword(lexer, "short", LEX_USHORT);
-          case 'i': return complete_keyword(lexer, "uint", LEX_UINT);
-          case 'l': return complete_keyword(lexer, "ulong", LEX_ULONG);
+          case 'i': return complete_keyword(lexer, "int", LEX_UINT);
+          case 'l': return complete_keyword(lexer, "long", LEX_ULONG);
+          case 'n': return complete_keyword(lexer, "nion", LEX_UNION);
           }
           break;
      case 's':
           switch (*(lexer->current + 1)) {
           case 'h': return complete_keyword(lexer, "hort", LEX_SHORT);
           case 'w': return complete_keyword(lexer, "witch", LEX_SWITCH);
+          case 't': return complete_keyword(lexer, "truct", LEX_STRUCT);
           }
           break;
      case 'i':
@@ -93,13 +94,36 @@ struct token keyword(struct lexer *lexer) {
           case 'f': return make_token(lexer, LEX_IF);
           }
           break;
+     case 'f':
+          switch (*(lexer->current + 1)) {
+          case 'l': return complete_keyword(lexer, "loat", LEX_FLOAT);
+          case 'o': return complete_keyword(lexer, "or", LEX_FOR);
+          }
+          break;
+     case 'l': return complete_keyword(lexer, "ong", LEX_LONG);
+     case 'd':
+          switch (*(lexer->current + 1)) {
+          case 'o': return complete_keyword(lexer, "ouble", LEX_DOUBLE);
+          case 'i': return complete_keyword(lexer, "ie", LEX_DIE);
+          }
+          break;
+     case 'r': return complete_keyword(lexer, "eturn", LEX_RETURN);
+     case 't': return complete_keyword(lexer, "ypedef", LEX_TYPEDEF);
+     case 'e':
+          switch (*(lexer->current + 1)) {
+          case 'n': return complete_keyword(lexer, "num", LEX_ENUM);
+          case 'l': return complete_keyword(lexer, "lse", LEX_ELSE);
+          }
+          break;
+     case 'w': return complete_keyword(lexer, "hile", LEX_WHILE);
      }
+     return identifier(lexer);
 }
 
 struct token hex(struct lexer *lexer) {
      lexer->current++;
      if (!isxdigit(*lexer->current)) {
-          fprintf("Lex error: hex literal start sequence (\"0x\") but no hex digits.\n");
+          fprintf(stderr, "Lex error: hex literal start sequence (\"0x\") but no hex digits.\n");
           exit(1);
      }
      lexer->current++;
@@ -110,11 +134,29 @@ struct token hex(struct lexer *lexer) {
 }
 
 struct token binary(struct lexer *lexer) {
-
+     lexer->current++;
+     if (!isxdigit(*lexer->current)) {
+          fprintf(stderr, "Lex error: binary literal start sequence (\"0b\") but no binary digits.\n");
+          exit(1);
+     }
+     lexer->current++;
+     while (*lexer->current == '0' || *lexer->current == '1') {
+          lexer->current++;
+     }
+     return make_token(lexer, LEX_BINARY_LITERAL);
 }
 
 struct token octal(struct lexer *lexer) {
-
+     lexer->current++;
+     if (!isxdigit(*lexer->current)) {
+          fprintf(stderr, "Lex error: octal literal start sequence (\"0o\") but no octal digits.\n");
+          exit(1);
+     }
+     lexer->current++;
+     while (*lexer->current >= '0' && *lexer->current <= '7') {
+          lexer->current++;
+     }
+     return make_token(lexer, LEX_OCTAL_LITERAL);
 }
 
 struct token number(struct lexer *lexer) {
@@ -125,95 +167,98 @@ struct token number(struct lexer *lexer) {
           case 'b': return binary(lexer);
           case 'o': return octal(lexer);
           }
-          while (isnum(*lexer->current)) {
+     }
+     while (*lexer->current >= '0' && *lexer->current <= '9') {
+          lexer->current++;
+     }
+     if (*lexer->current == '.') {
+          while (*lexer->current >= '0' && *lexer->current <= '9') {
                lexer->current++;
           }
-          if (*lexer->current == '.') {
-               while (isnum(*lexer->current)) {
-                    lexer->current++;
-               }
-          }
-          return make_token(lexer, LEX_NUM_LITERAL);
      }
+     return make_token(lexer, LEX_NUM_LITERAL);
+}
 
-     struct token string(struct lexer *lexer) {
-          lexer->current++;
-          while(*lexer->current != '"') {
-               if (*lexer->current == '\0') {
-                    fprintf(stderr, "Lex error: unterminated string literal.\n");
-                    exit(1);
-               }
-               lexer->current++;
-          }
-          return make_token(lexer, LEX_STR_LITERAL);
-     }
-
-     struct token char_literal(struct lexer *lexer) {
-          lexer->current++;
-          lexer->current += *lexer->current == '/';
-          lexer->current++;
-          if (*lexer->current != '\'') {
-               fprintf(stderr, "Lex error: unterminated char literal.\n");
+struct token string(struct lexer *lexer) {
+     lexer->current++;
+     while(*lexer->current != '"') {
+          if (*lexer->current == '\0') {
+               fprintf(stderr, "Lex error: unterminated string literal.\n");
                exit(1);
           }
-          return make_token(lexer, LEX_CHAR_LITERAL);
-     }
-
-     struct token lex(struct lexer *lexer) {
-          skip_whitespace(lexer);
-          lexer->current = lexer->start;
-          if (*lexer->current == '\0') {
-               return make_token(lexer, LEX_EOF);
-          }
           lexer->current++;
-          char c = *lexer->current;
-          if (isalpha(c)) return keyword(lexer);
-          if (isdigit(c)) return number(lexer);
-          if (c == '"') return string(lexer);
-          if (c == '\'') return char_literal(lexer);
+     }
+     return make_token(lexer, LEX_STR_LITERAL);
+}
 
-          switch (c) {
-          case ';': return make_token(lexer, LEX_SEMICOLON);
-          case '(': return make_token(lexer, LEX_LPARENS);
-          case ')': return make_token(lexer, LEX_RPARENS);
-          case '[': return make_token(lexer, LEX_LBRACKETS);
-          case ']': return make_token(lexer, LEX_RBRACKETS);
-          case '{': return make_token(lexer, LEX_LCURLY_BRACE);
-          case '}': return make_token(lexer, LEX_RCURLY_BRACE);
-
-          case '=': return make_token(match(lexer, '=') ? LEX_EQUALS : LEX_ASSIGNMENT);
-          case '+':
-               if (match(lexer, '+')) return make_token(lexer, LEX_INCREMENT);
-               if (match(lexer, '=')) return make_token(lexer, LEX_PLUS_EQUALS);
-               return make_token(lexer, LEX_PLUS);
-          case '-':
-               if (match(lexer, '-')) return make_token(lexer, LEX_DECREMENT);
-               if (match(lexer, '=')) return make_token(lexer, LEX_MINUS_EQUALS);
-               return make_token(lexer, LEX_MINUS);
-          case '*': return make_token(lexer, match(lexer, '=') ? LEX_STAR_EQUALS : LEX_STAR);
-          case '/': return make_token(lexer, match(lexer, '=') ? LEX_SLASH_EQUALS : LEX_SLASH);
-          case '%': return make_token(lexer, match(lexer, '=') ? LEX_MOD_EQUALS : LEX_MOD);
-          case '&':
-               if (match(lexer, '&')) return make_token(lexer, LEX_AND);
-               if (match(lexer, '=')) return make_token(lexer, LEX_BITWISE_AND_EQUALS);
-               return make_token(lexer, LEX_BITWISE_AND);
-          case '|':
-               if (match(lexer, '|')) return make_token(lexer, LEX_OR);
-               if (match(lexer, '=')) return make_token(lexer, LEX_BITWISE_OR_EQUALS);
-               return make_token(lexer, LEX_BITWISE_OR);
-          case '^': return make_token(lexer, match(lexer, '=') ? LEX_BITWISE_XOR_EQUALS, LEX_BITWISE_XOR);
-          case '~': return make_token(lexer, match(lexer, '=') ? LEX_BITWISE_NOT_EQUALS, LEX_BITWISE_NOT);
-          case '<':
-               if (match(lexer, '=')) return make_token(lexer, LEX_LESS_THAN_OR_EQUAL_TO);
-               if (match(lexer, '<')) return make_token(lexer, LEX_LSHIFT);
-               return make_token(lexer, LEX_LESS_THAN);
-          case '>':
-               if (match(lexer, '=')) return make_token(lexer, LEX_GREATER_THAN_OR_EQUAL_TO);
-               if (match(lexer, '>')) return make_token(lexer, LEX_RSHIFT);
-               return make_token(lexer, LEX_GREATER_THAN);
-          }
-          fprintf(stderr, "Lex error: unknown token \"%c\".\n", *lexer->current);
+struct token char_literal(struct lexer *lexer) {
+     lexer->current++;
+     lexer->current += *lexer->current == '/';
+     lexer->current++;
+     if (*lexer->current != '\'') {
+          fprintf(stderr, "Lex error: unterminated char literal.\n");
           exit(1);
      }
+     return make_token(lexer, LEX_CHAR_LITERAL);
+}
 
-     // *char s = [char]alloc(10)
+void skip_whitespace(struct lexer *lexer) {}
+
+struct token lex(struct lexer *lexer) {
+     skip_whitespace(lexer);
+     lexer->current = lexer->start;
+     if (*lexer->current == '\0') {
+          return make_token(lexer, LEX_EOF);
+     }
+     lexer->current++;
+     char c = *lexer->current;
+     if (isalpha(c)) return keyword(lexer);
+     if (isdigit(c)) return number(lexer);
+     if (c == '"') return string(lexer);
+     if (c == '\'') return char_literal(lexer);
+
+     switch (c) {
+     case ';': return make_token(lexer, LEX_SEMICOLON);
+     case '(': return make_token(lexer, LEX_LPARENS);
+     case ')': return make_token(lexer, LEX_RPARENS);
+     case '[': return make_token(lexer, LEX_LBRACKETS);
+     case ']': return make_token(lexer, LEX_RBRACKETS);
+     case '{': return make_token(lexer, LEX_LCURLY_BRACE);
+     case '}': return make_token(lexer, LEX_RCURLY_BRACE);
+
+     case '=': return make_token(lexer, match(lexer, '=') ? LEX_EQUALS : LEX_ASSIGNMENT);
+     case '+':
+          if (match(lexer, '+')) return make_token(lexer, LEX_INCREMENT);
+          if (match(lexer, '=')) return make_token(lexer, LEX_PLUS_EQUALS);
+          return make_token(lexer, LEX_PLUS);
+     case '-':
+          if (match(lexer, '-')) return make_token(lexer, LEX_DECREMENT);
+          if (match(lexer, '=')) return make_token(lexer, LEX_MINUS_EQUALS);
+          return make_token(lexer, LEX_MINUS);
+     case '*': return make_token(lexer, match(lexer, '=') ? LEX_STAR_EQUALS : LEX_STAR);
+     case '/': return make_token(lexer, match(lexer, '=') ? LEX_SLASH_EQUALS : LEX_SLASH);
+     case '%': return make_token(lexer, match(lexer, '=') ? LEX_MOD_EQUALS : LEX_MOD);
+     case '&':
+          if (match(lexer, '&')) return make_token(lexer, LEX_AND);
+          if (match(lexer, '=')) return make_token(lexer, LEX_BITWISE_AND_EQUALS);
+          return make_token(lexer, LEX_BITWISE_AND);
+     case '|':
+          if (match(lexer, '|')) return make_token(lexer, LEX_OR);
+          if (match(lexer, '=')) return make_token(lexer, LEX_BITWISE_OR_EQUALS);
+          return make_token(lexer, LEX_BITWISE_OR);
+     case '^': return make_token(lexer, match(lexer, '=') ? LEX_BITWISE_XOR_EQUALS : LEX_BITWISE_XOR);
+     case '~': return make_token(lexer, match(lexer, '=') ? LEX_BITWISE_NOT_EQUALS : LEX_BITWISE_NOT);
+     case '<':
+          if (match(lexer, '=')) return make_token(lexer, LEX_LESS_THAN_OR_EQUAL_TO);
+          if (match(lexer, '<')) return make_token(lexer, LEX_LSHIFT);
+          return make_token(lexer, LEX_LESS_THAN);
+     case '>':
+          if (match(lexer, '=')) return make_token(lexer, LEX_GREATER_THAN_OR_EQUAL_TO);
+          if (match(lexer, '>')) return make_token(lexer, LEX_RSHIFT);
+          return make_token(lexer, LEX_GREATER_THAN);
+     }
+     fprintf(stderr, "Lex error: unknown token \"%c\".\n", *lexer->current);
+     exit(1);
+}
+
+// *char s = [char]alloc(10)

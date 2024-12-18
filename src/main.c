@@ -12,16 +12,16 @@ int main(int argc, char *argv[]) {
   char *src = read_file(argv[1]);
 
   struct lexer lexer;
-  lexer.src = src;
   lexer.start = src;
-  lexer.len = 0;
+  lexer.current = src;
   lexer.line = 1;
-  lexer.scratchpad[LEX_SCRATCHPAD_SIZE - 1] = '\0';
+
+  struct token token;
 
   printf("Debug: lexing first token.\n");
-  while (lex(&lexer)->type != LEX_EOF) {
+  while ((token = lex(&lexer)).type != LEX_EOF) {
     printf("Debug: lexing another token.\n");
-    printf("Token value: \"%s\"\n", lexer.token_buffer.value);
+    printf("Token start: \"%s\"\n", token.start);
   }
 
   free(src);

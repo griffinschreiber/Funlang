@@ -60,18 +60,20 @@ enum token_type {
 
   LEX_BOOL,
   LEX_CHAR,
+  LEX_UCHAR,
   LEX_SHORT,
   LEX_USHORT,
   LEX_INT,
   LEX_UINT,
-  LEX_FLOAT,
   LEX_LONG,
   LEX_ULONG,
+  LEX_FLOAT,
+  LEX_UFLOAT,
   LEX_DOUBLE,
+  LEX_UDOUBLE,
 
   LEX_CONST,
 
-  LEX_SPAWN,
   LEX_DIE,
 
   LEX_RETURN,
@@ -83,7 +85,6 @@ enum token_type {
 
   LEX_IF,
   LEX_ELSE,
-  LEX_UNLESS,
   LEX_SWITCH,
   LEX_CASE,
   LEX_FOR,
