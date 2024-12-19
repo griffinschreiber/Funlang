@@ -16,11 +16,13 @@ int main(int argc, char *argv[]) {
   lexer.current = src;
   lexer.line = 1;
 
-  struct token token;
-
   printf("Debug: lexing first token.\n");
-  while ((token = lex(&lexer)).type != LEX_EOF) {
+  for (;;) {
     printf("Debug: lexing another token.\n");
+    struct token token = lex(&lexer);
+    if (token.type == LEX_EOF) {
+      break;
+    }
     printf("Token start: \"%s\"\n", token.start);
   }
 

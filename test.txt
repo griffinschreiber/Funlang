@@ -1,3 +1,1 @@
 int x = 42;
-char y = 'a';
-*char z = "Hello, World!";

@@ -23,14 +23,20 @@ struct token make_token(struct lexer *lexer, enum token_type type) {
 }
 
 struct token identifier(struct lexer *lexer) {
-
+     while (isalnum(lexer->current[1]) || lexer->current[1] == '_') {
+          lexer->current++;
+     }
+     return make_token(lexer, LEX_IDENTIFIER);
 }
 
 struct token complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
-     for (int i = 0; i < strlen(completion); i++) {
+     int i = 0;
+     while (i < strlen(completion)) {
           if (lexer->current[i] != completion[i]) {
                return identifier(lexer);
           }
+          i++;
+          lexer->current++;
      }
      return make_token(lexer, type);
 }
@@ -204,11 +210,32 @@ struct token char_literal(struct lexer *lexer) {
      return make_token(lexer, LEX_CHAR_LITERAL);
 }
 
-void skip_whitespace(struct lexer *lexer) {}
+void skip_whitespace(struct lexer *lexer) {
+     while (lexer->current[1] != '\0') {
+          // I could make the newline case fallthrough after lexer->line++ to the tab case, but it would make the code confusing.
+          printf("Debug: current char is '%c'\n", *lexer->current);
+          switch (*lexer->current) {
+          case ' ':
+          case '\t':
+               printf("Debug: whitespace case.\n");
+               lexer->current++;
+               break;
+          case '\n':
+               printf("Debug: newline case.\n");
+               lexer->line++;
+               lexer->current++;
+               break;
+          default:
+               printf("Debug: default case.\n");
+               return;
+          }
+          lexer->current++;
+     }
+}
 
 struct token lex(struct lexer *lexer) {
      skip_whitespace(lexer);
-     lexer->current = lexer->start;
+     lexer->start = lexer->current;
      if (*lexer->current == '\0') {
           return make_token(lexer, LEX_EOF);
      }
