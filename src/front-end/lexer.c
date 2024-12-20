@@ -36,7 +36,6 @@ struct token complete_keyword(struct lexer *lexer, const char *completion, enum 
      lexer->current++;
      while (i < strlen(completion)) {
           if (*lexer->current != completion[i]) {
-               printf("Debug: identifier.\n");
                return identifier(lexer);
           }
           i++;
@@ -220,28 +219,21 @@ void skip_whitespace(struct lexer *lexer) {
           switch (*lexer->current) {
           case ' ':
           case '\t':
-               printf("Debug: whitespace case.\n");
                lexer->current++;
-               printf("Debug: '%c'\n", *lexer->current);
                return;
           case '\n':
-               printf("Debug: newline case.\n");
                lexer->line++;
                lexer->current++;
                return;
           default:
-               printf("Debug: default case.\n");
                return;
           }
      }
 }
 
 struct token lex(struct lexer *lexer) {
-     printf("Debug: current char before skip_whitespace: '%c'\n", *lexer->current);
      skip_whitespace(lexer);
-     printf("Debug: current char after skip_whitespace: '%c'\n", *lexer->current);
      if (*lexer->current == '\0') {
-          printf("Debug: emitting EOF with char '%c'\n", *lexer->current);
           return make_token(lexer, LEX_EOF);
      }
      lexer->start = lexer->current;
