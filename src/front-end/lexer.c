@@ -146,7 +146,7 @@ struct token hex(struct lexer *lexer) {
 
 struct token binary(struct lexer *lexer) {
      lexer->current++;
-     if (!isxdigit(*lexer->current)) {
+     if (!(*lexer->current == '0' || *lexer->current == '1')) {
           fprintf(stderr, "Lex error: binary literal start sequence (\"0b\") but no binary digits.\n");
           exit(1);
      }
@@ -159,7 +159,7 @@ struct token binary(struct lexer *lexer) {
 
 struct token octal(struct lexer *lexer) {
      lexer->current++;
-     if (!isxdigit(*lexer->current)) {
+     if (!(*lexer->current >= '0' && *lexer->current <= '7')) {
           fprintf(stderr, "Lex error: octal literal start sequence (\"0o\") but no octal digits.\n");
           exit(1);
      }
