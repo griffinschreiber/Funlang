@@ -33,8 +33,10 @@ struct token identifier(struct lexer *lexer) {
 
 struct token complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
      int i = 0;
+     lexer->current++;
      while (i < strlen(completion)) {
-          if (lexer->current[i] != completion[i]) {
+          if (*lexer->current != completion[i]) {
+               printf("Debug: identifier.\n");
                return identifier(lexer);
           }
           i++;
