@@ -6,7 +6,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 
 AM_CFLAGS = -Wall -Werror
 
-OBJDIR = $(topbuilddir)obj
+OBJDIR = $(top_builddir)obj
 
-bin_PROGRAMS = funlang
-funlang_SOURCES = main.c utils.c front-end/lexer.c
+bin_PROGRAMS = $(top_builddir)/bin/funlang
+__top_builddir__bin_funlang_SOURCES = main.c utils.c front-end/lexer.c
