@@ -220,11 +220,11 @@ void skip_whitespace(struct lexer *lexer) {
           case ' ':
           case '\t':
                lexer->current++;
-               return;
+               break;
           case '\n':
                lexer->line++;
                lexer->current++;
-               return;
+               break;
           default:
                return;
           }
