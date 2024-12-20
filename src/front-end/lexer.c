@@ -18,7 +18,9 @@ struct token make_token(struct lexer *lexer, enum token_type type) {
      struct token token;
      token.start = lexer->start;
      token.len = (int)(lexer->current - lexer->start);
+     token.type = type;
      token.line = lexer->line;
+     lexer->current++;
      return token;
 }
 
@@ -211,36 +213,37 @@ struct token char_literal(struct lexer *lexer) {
 }
 
 void skip_whitespace(struct lexer *lexer) {
-     while (lexer->current[1] != '\0') {
+     for (;;) {
           // I could make the newline case fallthrough after lexer->line++ to the tab case, but it would make the code confusing.
-          printf("Debug: current char is '%c'\n", *lexer->current);
           switch (*lexer->current) {
           case ' ':
           case '\t':
                printf("Debug: whitespace case.\n");
                lexer->current++;
-               break;
+               printf("Debug: '%c'\n", *lexer->current);
+               return;
           case '\n':
                printf("Debug: newline case.\n");
                lexer->line++;
                lexer->current++;
-               break;
+               return;
           default:
                printf("Debug: default case.\n");
                return;
           }
-          lexer->current++;
      }
 }
 
 struct token lex(struct lexer *lexer) {
+     printf("Debug: current char before skip_whitespace: '%c'\n", *lexer->current);
      skip_whitespace(lexer);
-     lexer->start = lexer->current;
+     printf("Debug: current char after skip_whitespace: '%c'\n", *lexer->current);
      if (*lexer->current == '\0') {
+          printf("Debug: emitting EOF with char '%c'\n", *lexer->current);
           return make_token(lexer, LEX_EOF);
      }
-     lexer->current++;
-     char c = *lexer->current;
+     lexer->start = lexer->current;
+     char c = *lexer->start;
      if (isalpha(c)) return keyword(lexer);
      if (isdigit(c)) return number(lexer);
      if (c == '"') return string(lexer);
@@ -286,7 +289,7 @@ struct token lex(struct lexer *lexer) {
           if (match(lexer, '>')) return make_token(lexer, LEX_RSHIFT);
           return make_token(lexer, LEX_GREATER_THAN);
      }
-     fprintf(stderr, "Lex error: unknown token \"%c\".\n", *lexer->current);
+     fprintf(stderr, "Lex error: unknown character '%c'.\n", *lexer->current);
      exit(1);
 }
 

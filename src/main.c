@@ -16,11 +16,12 @@ int main(int argc, char *argv[]) {
   lexer.current = src;
   lexer.line = 1;
 
-  printf("Debug: lexing first token.\n");
   for (;;) {
-    printf("Debug: lexing another token.\n");
+    printf("Debug: lexing a token.\n");
     struct token token = lex(&lexer);
+    printf("Debug: token.type is %i\n", token.type);
     if (token.type == LEX_EOF) {
+      printf("Debug: LEX_EOF emitted.\n");
       break;
     }
     printf("Token start: \"%s\"\n", token.start);
