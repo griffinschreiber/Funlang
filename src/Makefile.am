@@ -9,4 +9,4 @@ AM_CFLAGS = -Wall -Werror
 OBJDIR = $(top_builddir)obj
 
 bin_PROGRAMS = $(top_builddir)/bin/funlang
-__top_builddir__bin_funlang_SOURCES = main.c utils.c front-end/lexer.c
+__top_builddir__bin_funlang_SOURCES = main.c utils/file_read.c front-end/lexer.c
