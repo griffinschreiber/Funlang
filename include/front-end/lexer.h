@@ -111,6 +111,8 @@ struct lexer {
   int line;
 };
 
+struct lexer make_lexer(char *src);
+
 struct token lex(struct lexer *lexer);
 
 #endif // LEXER_H_

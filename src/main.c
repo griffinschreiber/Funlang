@@ -11,10 +11,7 @@ int main(int argc, char *argv[]) {
   }
   char *src = read_file(argv[1]);
 
-  struct lexer lexer;
-  lexer.start = src;
-  lexer.current = src;
-  lexer.line = 1;
+  struct lexer lexer = make_lexer(src);
 
   for (;;) {
     printf("Debug: lexing a token.\n");
