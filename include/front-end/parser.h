@@ -2,7 +2,7 @@
 #define PARSER_H_
 
 struct ast {
-  char *head;
+  char *value;
   struct ast *children;
 };
 
