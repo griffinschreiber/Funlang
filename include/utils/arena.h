@@ -7,7 +7,7 @@ struct arena;
 
 struct arena *make_arena();
 
-void *arena_alloc(size_t alloc_size);
+void *arena_alloc(struct arena *arena, size_t alloc_size);
 
 void arena_reset(struct arena *arena);
 

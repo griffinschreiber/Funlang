@@ -1,12 +1,13 @@
 #include "arena.h"
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define ARENA_BLOCK_CAPACITY 1024
 #define ARENA_MAX_BLOCKS 4
 
 struct block {
-  char data[ARENA_BLOCK_CAPACITY];
+  uintptr_t data[ARENA_BLOCK_CAPACITY];
   size_t index;
   struct block *next;
 };
