@@ -98,11 +98,12 @@ enum token_type {
   LEX_RCURLY_BRACE
 };
 
-struct token {
+struct ast {
   char *start;
   int len;
   enum token_type type;
   int line;
+  struct ast *children;
 };
 
 struct lexer {

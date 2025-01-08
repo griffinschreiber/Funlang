@@ -1,6 +1,5 @@
 #include "front-end/parser.h"
 
-#include "front-end/lexer.h"
 #include "utils/arena.h"
 
 void todo() {
