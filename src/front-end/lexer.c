@@ -6,6 +6,15 @@
 #include <ctype.h>
 #include <stdbool.h>
 
+struct lexer make_lexer(char *src) {
+     struct lexer lexer;
+     lexer.start = src;
+     lexer.current = src;
+     lexer.line = 0;
+     lexer.arena = make_arena();
+     return lexer;
+}
+
 bool match(struct lexer *lexer, char c) {
      if (*(lexer->current + 1) == c) {
           lexer->current++;
@@ -14,8 +23,8 @@ bool match(struct lexer *lexer, char c) {
      return 0;
 }
 
-struct ast *make_token(struct arena *arena, struct lexer *lexer, enum token_type type) {
-     struct ast token = (struct ast *)arena_alloc(arena, sizeof(struct ast));
+struct ast *make_token(struct lexer *lexer, enum token_type type) {
+     struct ast token = (struct ast *)arena_alloc(lexer->arena, sizeof(struct ast));
      token.start = lexer->start;
      token.len = (int)(lexer->current - lexer->start);
      token.type = type;
@@ -276,11 +285,17 @@ struct ast *lex(struct lexer *lexer) {
      case '~': return make_token(lexer, match(lexer, '=') ? LEX_BITWISE_NOT_EQUALS : LEX_BITWISE_NOT);
      case '<':
           if (match(lexer, '=')) return make_token(lexer, LEX_LESS_THAN_OR_EQUAL_TO);
-          if (match(lexer, '<')) return make_token(lexer, LEX_LSHIFT);
+          if (match(lexer, '<')) {
+               if (match(lexer, '=')) return make_token(lexer, LEX_LSHIFT_EQUALS);
+               return make_token(lexer, LEX_LSHIFT);
+          }
           return make_token(lexer, LEX_LESS_THAN);
      case '>':
           if (match(lexer, '=')) return make_token(lexer, LEX_GREATER_THAN_OR_EQUAL_TO);
-          if (match(lexer, '>')) return make_token(lexer, LEX_RSHIFT);
+          if (match(lexer, '>')) {
+               if (match(lexer, '=')) return make_token(lexer, LEX_RSHIFT_EQUALS);
+               return make_token(lexer, LEX_RSHIFT);
+          }
           return make_token(lexer, LEX_GREATER_THAN);
      }
      fprintf(stderr, "Lex error: unknown character '%c'.\n", *lexer->current);

@@ -1,6 +1,9 @@
 #ifndef LEXER_H_
 #define LEXER_H_
 
+#include "utils/arena.h"
+
+// todo: sizeof, alignof
 enum token_type {
   LEX_EOF,
   LEX_SEMICOLON,
@@ -110,6 +113,7 @@ struct lexer {
   char *start;
   char *current;
   int line;
+  struct arena *arena;
 };
 
 struct lexer make_lexer(char *src);
