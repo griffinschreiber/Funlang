@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
 
   for (;;) {
     printf("Debug: lexing a token.\n");
-    struct token token = lex(&lexer);
+    struct token token = advance(&lexer);
     printf("Debug: token.type is %i\n", token.type);
     if (token.type == LEX_EOF) {
       printf("Debug: LEX_EOF emitted.\n");

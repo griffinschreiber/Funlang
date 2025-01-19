@@ -1,0 +1,66 @@
+#+title: Docs
+
+* Operators
+** Arithmetic
+a + b
+a - b
+a * b
+a / b
+
+a % b
+
+a & b
+a | b
+a ^ b
+a << b
+a >> b
+
+** Unary
+~a
+!a
+&a
+*a
+a++
+a--
+-a
++a
+
+** Assignment
+a = b
+a += b
+a -= b
+a /= b
+a *= b
+a &= b
+a |= b
+a ^= b
+a <<= b
+a >>= b
+a %= b
+
+** Special
+a.b
+a->b
+[type]func
+func(parameters)
+array[index]
+(comma seperated array literal)
+{code block}
+,
+
+** Logical
+Note: unlike the bitwise versions, && and || guarantee conditional
+evaluation, which means that if we have:
+0 && expr
+then expr will never be evaluated.
+a && b
+a || b
+a == b
+a != b
+a < b
+a > b
+
+
+
+sizeof
+alignof

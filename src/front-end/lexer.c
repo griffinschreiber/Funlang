@@ -6,15 +6,6 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-struct lexer make_lexer(char *src) {
-     struct lexer lexer;
-     lexer.start = src;
-     lexer.current = src;
-     lexer.line = 0;
-     lexer.arena = make_arena();
-     return lexer;
-}
-
 bool match(struct lexer *lexer, char c) {
      if (*(lexer->current + 1) == c) {
           lexer->current++;
@@ -23,24 +14,24 @@ bool match(struct lexer *lexer, char c) {
      return 0;
 }
 
-struct ast *make_token(struct lexer *lexer, enum token_type type) {
-     struct ast token = (struct ast *)arena_alloc(lexer->arena, sizeof(struct ast));
+struct token make_token(struct lexer *lexer, enum token_type type) {
+     struct token token;
      token.start = lexer->start;
      token.len = (int)(lexer->current - lexer->start);
      token.type = type;
      token.line = lexer->line;
      lexer->current++;
-     return &token;
+     return token;
 }
 
-struct ast *identifier(struct lexer *lexer) {
+struct token *identifier(struct lexer *lexer) {
      while (isalnum(lexer->current[1]) || lexer->current[1] == '_') {
           lexer->current++;
      }
      return make_token(lexer, LEX_IDENTIFIER);
 }
 
-struct ast *complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
+struct token *complete_keyword(struct lexer *lexer, const char *completion, enum token_type type) {
      int i = 0;
      lexer->current++;
      while (i < strlen(completion)) {
@@ -53,7 +44,7 @@ struct ast *complete_keyword(struct lexer *lexer, const char *completion, enum t
      return make_token(lexer, type);
 }
 
-struct ast *keyword(struct lexer *lexer) {
+struct token *keyword(struct lexer *lexer) {
      // void
      // bool
      // char
@@ -140,7 +131,7 @@ struct ast *keyword(struct lexer *lexer) {
      return identifier(lexer);
 }
 
-struct ast *hex(struct lexer *lexer) {
+struct token *hex(struct lexer *lexer) {
      lexer->current++;
      if (!isxdigit(*lexer->current)) {
           fprintf(stderr, "Lex error: hex literal start sequence (\"0x\") but no hex digits.\n");
@@ -153,7 +144,7 @@ struct ast *hex(struct lexer *lexer) {
      return make_token(lexer, LEX_HEX_LITERAL);
 }
 
-struct ast *binary(struct lexer *lexer) {
+struct token *binary(struct lexer *lexer) {
      lexer->current++;
      if (!(*lexer->current == '0' || *lexer->current == '1')) {
           fprintf(stderr, "Lex error: binary literal start sequence (\"0b\") but no binary digits.\n");
@@ -166,7 +157,7 @@ struct ast *binary(struct lexer *lexer) {
      return make_token(lexer, LEX_BINARY_LITERAL);
 }
 
-struct ast *octal(struct lexer *lexer) {
+struct token *octal(struct lexer *lexer) {
      lexer->current++;
      if (!(*lexer->current >= '0' && *lexer->current <= '7')) {
           fprintf(stderr, "Lex error: octal literal start sequence (\"0o\") but no octal digits.\n");
@@ -176,10 +167,11 @@ struct ast *octal(struct lexer *lexer) {
      while (*lexer->current >= '0' && *lexer->current <= '7') {
           lexer->current++;
      }
-     return make_token(lexer, LEX_OCTAL_LITERAL);
+     struct token token;
+     token.start
 }
 
-struct ast *number(struct lexer *lexer) {
+struct token *number(struct lexer *lexer) {
      if (*lexer->current == '0') {
           lexer->current++;
           switch (*lexer->current) {
@@ -199,7 +191,7 @@ struct ast *number(struct lexer *lexer) {
      return make_token(lexer, LEX_NUM_LITERAL);
 }
 
-struct ast *string(struct lexer *lexer) {
+struct token *string(struct lexer *lexer) {
      lexer->current++;
      while(*lexer->current != '"') {
           if (*lexer->current == '\0') {
@@ -211,7 +203,7 @@ struct ast *string(struct lexer *lexer) {
      return make_token(lexer, LEX_STR_LITERAL);
 }
 
-struct ast *char_literal(struct lexer *lexer) {
+struct token *char_literal(struct lexer *lexer) {
      lexer->current++;
      lexer->current += *lexer->current == '/';
      lexer->current++;
@@ -240,7 +232,7 @@ void skip_whitespace(struct lexer *lexer) {
      }
 }
 
-struct ast *lex(struct lexer *lexer) {
+struct token *lex(struct lexer *lexer) {
      skip_whitespace(lexer);
      if (*lexer->current == '\0') {
           return make_token(lexer, LEX_EOF);
@@ -269,6 +261,7 @@ struct ast *lex(struct lexer *lexer) {
      case '-':
           if (match(lexer, '-')) return make_token(lexer, LEX_DECREMENT);
           if (match(lexer, '=')) return make_token(lexer, LEX_MINUS_EQUALS);
+          if (match(lexer, '>')) return make_token(lexer, LEX_ARROW);
           return make_token(lexer, LEX_MINUS);
      case '*': return make_token(lexer, match(lexer, '=') ? LEX_STAR_EQUALS : LEX_STAR);
      case '/': return make_token(lexer, match(lexer, '=') ? LEX_SLASH_EQUALS : LEX_SLASH);
@@ -297,9 +290,26 @@ struct ast *lex(struct lexer *lexer) {
                return make_token(lexer, LEX_RSHIFT);
           }
           return make_token(lexer, LEX_GREATER_THAN);
+
+          case '.': return make_token(lexer, LEX_DOT);
      }
      fprintf(stderr, "Lex error: unknown character '%c'.\n", *lexer->current);
      exit(1);
+}
+
+struct token advance(struct lexer *lexer) {
+     struct token current = lexer->next;
+     lexer->next = lex(lexer);
+     return current;
+}
+
+struct lexer make_lexer(char *src) {
+     struct lexer lexer;
+     lexer.start = src;
+     lexer.current = src;
+     lexer.line = 0;
+     lexer->next = lex(lexer);
+     return lexer;
 }
 
 // *char s = [char]alloc(10)

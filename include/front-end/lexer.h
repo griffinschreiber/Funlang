@@ -13,11 +13,11 @@ enum token_type {
   LEX_IDENTIFIER,
 
   LEX_NUM_LITERAL,
-  LEX_HEX_LITERAL,
-  LEX_BINARY_LITERAL,
-  LEX_OCTAL_LITERAL,
   LEX_CHAR_LITERAL,
   LEX_STR_LITERAL,
+
+  LEX_DOT,
+  LEX_ARROW,
 
   LEX_PLUS,
   LEX_MINUS,
@@ -101,23 +101,22 @@ enum token_type {
   LEX_RCURLY_BRACE
 };
 
-struct ast {
+struct token {
   char *start;
   int len;
   enum token_type type;
   int line;
-  struct ast *children;
 };
 
 struct lexer {
   char *start;
   char *current;
   int line;
-  struct arena *arena;
+  struct token next;
 };
 
 struct lexer make_lexer(char *src);
 
-struct token lex(struct lexer *lexer);
+struct token advance(struct lexer *lexer);
 
 #endif // LEXER_H_
